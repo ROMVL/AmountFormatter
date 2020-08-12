@@ -10,6 +10,7 @@ import androidx.appcompat.widget.AppCompatEditText
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import kotlin.math.min
@@ -21,18 +22,21 @@ class InputAmountCell @JvmOverloads constructor(
     defStyleAttr: Int = android.R.attr.editTextStyle
 ) : AppCompatEditText(context, attrs, defStyleAttr) {
 
-    private var currencySymbol: String = ua.romanik.inputcell.amount.Currency.RUR.value
+    private var currencySymbol: String = Currency.RUR.value
 
     private var textWatcher: TextWatcher = getTextWatcher().also {
         addTextChangedListener(it)
     }
 
-    private val amountState = MutableStateFlow(MIN_AMOUNT.toDouble())
+    private val amountState = MutableStateFlow<String>(MIN_AMOUNT.toString())
 
     private val minFormattedAmount: String
         get() = "$MIN_AMOUNT $currencySymbol"
 
     val amountChannel: Flow<Double>
+        get() = amountState.map { it.toDouble() }
+
+    val amountInStringChannel: Flow<String>
         get() = amountState
 
     init {
@@ -118,7 +122,7 @@ class InputAmountCell @JvmOverloads constructor(
                     )
                 val selectionStartIndexBeforeFormatting = selectionStart
 
-                amountState.value = numberWithoutGroupingSeparator.toDouble()
+                amountState.value = numberWithoutGroupingSeparator
 
                 setText(formatNumber(numberWithoutGroupingSeparator))
                 setUpSelectionAfterFormatting(selectionStartIndexBeforeFormatting, startLength)
@@ -139,18 +143,16 @@ class InputAmountCell @JvmOverloads constructor(
                 } ?: false
         }
 
-        private fun formatNumber(numberWithoutGroupingSeparator: String): String {
+        private fun formatNumber(number: String): String {
             return takeIf {
                 hasDecimalPoint
             }?.let {
                 fractionDecimalFormat.applyPattern(
-                    FRACTION_FORMAT_PATTERN_PREFIX +
-                            getFormatSequenceAfterDecimalSeparator(
-                                numberWithoutGroupingSeparator
-                            )
+                    FRACTION_FORMAT_PATTERN_PREFIX
+                            + getFormatSequenceAfterDecimalSeparator(number)
                 )
-                "${fractionDecimalFormat.format(numberWithoutGroupingSeparator.toDouble())} $currencySymbol"
-            } ?: "${wholeNumberDecimalFormat.format(numberWithoutGroupingSeparator.toDouble())} $currencySymbol"
+                "${fractionDecimalFormat.format(number.toDouble())} $currencySymbol"
+            } ?: "${wholeNumberDecimalFormat.format(number.toDouble())} $currencySymbol"
         }
 
         private fun setUpSelectionAfterFormatting(

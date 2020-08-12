@@ -24,6 +24,10 @@ class MainActivity : AppCompatActivity() {
                 .onEach {
                     textViewAmountDouble.text = it
                 }.launchIn(lifecycleScope)
+            amountInStringChannel
+                .onEach {
+                    textViewAmountString.text = it
+                }.launchIn(lifecycleScope)
         }
 
     }
