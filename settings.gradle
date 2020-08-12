@@ -1,0 +1,4 @@
+include ':inputcell'
+include ':amountedittext'
+include ':app'
+rootProject.name = "AmountFormatter"
