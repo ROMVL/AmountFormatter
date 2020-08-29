@@ -5,12 +5,12 @@ import android.graphics.Rect
 import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
+import android.text.method.DigitsKeyListener
 import android.util.AttributeSet
 import androidx.appcompat.widget.AppCompatEditText
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.map
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import kotlin.math.min
@@ -28,19 +28,17 @@ class InputAmountCell @JvmOverloads constructor(
         addTextChangedListener(it)
     }
 
-    private val amountState = MutableStateFlow<String>(MIN_AMOUNT.toString())
+    private val amountState = MutableStateFlow<Double>(MIN_AMOUNT.toDouble())
 
     private val minFormattedAmount: String
         get() = "$MIN_AMOUNT $currencySymbol"
 
     val amountChannel: Flow<Double>
-        get() = amountState.map { it.toDouble() }
-
-    val amountInStringChannel: Flow<String>
         get() = amountState
 
     init {
         inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+        keyListener = DigitsKeyListener.getInstance("01234567890,")
     }
 
     override fun onFocusChanged(focused: Boolean, direction: Int, previouslyFocusedRect: Rect?) {
@@ -70,7 +68,7 @@ class InputAmountCell @JvmOverloads constructor(
         setSelection(formattedAmount.length - 1)
     }
 
-    fun setCurrencySymbol(currency: ua.romanik.inputcell.amount.Currency) {
+    fun setCurrencySymbol(currency: Currency) {
         this.currencySymbol = currency.value
     }
 
@@ -94,6 +92,7 @@ class InputAmountCell @JvmOverloads constructor(
         private val decimalFormatSymbolsWatcher: DecimalFormatSymbols
             get() = DecimalFormatSymbols().apply {
                 groupingSeparator = ' '
+                decimalSeparator = ','
             }
 
         override fun beforeTextChanged(s: CharSequence, start: Int, count: Int, after: Int) {
@@ -120,13 +119,15 @@ class InputAmountCell @JvmOverloads constructor(
                         decimalFormatSymbolsWatcher.groupingSeparator.toString(),
                         currencySymbol
                     )
+                val parsedNumber = fractionDecimalFormat.parse(numberWithoutGroupingSeparator)
                 val selectionStartIndexBeforeFormatting = selectionStart
 
-                amountState.value = numberWithoutGroupingSeparator
+                parsedNumber?.let { number ->
+                    amountState.value = number.toDouble()
 
-                setText(formatNumber(numberWithoutGroupingSeparator))
-                setUpSelectionAfterFormatting(selectionStartIndexBeforeFormatting, startLength)
-
+                    setText(formatNumber(numberWithoutGroupingSeparator, number))
+                    setUpSelectionAfterFormatting(selectionStartIndexBeforeFormatting, startLength)
+                }
             }.onFailure {
                 it.printStackTrace()
             }
@@ -143,7 +144,7 @@ class InputAmountCell @JvmOverloads constructor(
                 } ?: false
         }
 
-        private fun formatNumber(number: String): String {
+        private fun formatNumber(number: String, parsedNumber: Number): String {
             return takeIf {
                 hasDecimalPoint
             }?.let {
@@ -151,8 +152,8 @@ class InputAmountCell @JvmOverloads constructor(
                     FRACTION_FORMAT_PATTERN_PREFIX
                             + getFormatSequenceAfterDecimalSeparator(number)
                 )
-                "${fractionDecimalFormat.format(number.toDouble())} $currencySymbol"
-            } ?: "${wholeNumberDecimalFormat.format(number.toDouble())} $currencySymbol"
+                "${fractionDecimalFormat.format(parsedNumber)} $currencySymbol"
+            } ?: "${wholeNumberDecimalFormat.format(parsedNumber)} $currencySymbol"
         }
 
         private fun setUpSelectionAfterFormatting(
@@ -182,11 +183,7 @@ class InputAmountCell @JvmOverloads constructor(
             value: String,
             groupingSeparator: String,
             currencySymbol: String
-        ) = value.replace(groupingSeparator,
-            EMPTY_STRING
-        ).replace(currencySymbol,
-            EMPTY_STRING
-        )
+        ) = value.replace(groupingSeparator, EMPTY_STRING).replace(currencySymbol, EMPTY_STRING)
 
     }
 
