@@ -11,6 +11,7 @@ import androidx.appcompat.widget.AppCompatEditText
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import java.math.RoundingMode
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import kotlin.math.min
@@ -80,13 +81,20 @@ class InputAmountCell @JvmOverloads constructor(
 
         private var hasDecimalPoint = false
 
+        private val decimalFormat = DecimalFormat("#.##").apply {
+            roundingMode = RoundingMode.DOWN
+        }
+
         private val wholeNumberDecimalFormat = DecimalFormat().apply {
             applyPattern(FORMAT_PATTERN)
             decimalFormatSymbols = decimalFormatSymbolsWatcher
+            roundingMode = RoundingMode.DOWN
         }
 
         private val fractionDecimalFormat = DecimalFormat().apply {
             decimalFormatSymbols = decimalFormatSymbolsWatcher
+            roundingMode = RoundingMode.DOWN
+            maximumFractionDigits = 2
         }
 
         private val decimalFormatSymbolsWatcher: DecimalFormatSymbols
@@ -123,7 +131,7 @@ class InputAmountCell @JvmOverloads constructor(
                 val selectionStartIndexBeforeFormatting = selectionStart
 
                 parsedNumber?.let { number ->
-                    amountState.value = number.toDouble()
+                    amountState.value = decimalFormat.format(number).toDouble()
 
                     setText(formatNumber(numberWithoutGroupingSeparator, number))
                     setUpSelectionAfterFormatting(selectionStartIndexBeforeFormatting, startLength)
